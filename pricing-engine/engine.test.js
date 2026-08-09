@@ -32,6 +32,7 @@ test('CV: 500 EUR, fee 1, rate 110.265 -> recipient 55022.24 CVE', () => {
 test('GW: 500 EUR -> recipient equals (sendAmount - fee) * baseRate rounded to 2dp', () => {
   const quote = computeQuote({ corridorCode: 'GW', sendAmount: 500 });
   const { baseRate, feeValue } = CORRIDORS.GW;
+  assert.ok(baseRate !== null);
   assert.equal(quote.recipientAmount, roundMoney((500 - feeValue) * baseRate, 2));
   assert.equal(quote.recipientAmount, 327322.54);
 });
