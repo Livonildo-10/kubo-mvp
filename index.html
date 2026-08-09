@@ -94,6 +94,133 @@
   }
   .corridor-card:not(.selected) .code { color: var(--muted); }
 
+  .sim-corridors { grid-template-columns: repeat(3, 1fr); }
+
+  .sim-amount-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .sim-currency {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .sim-amount-input {
+    font-size: 28px;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    width: 140px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .sim-rate-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .sim-rate-row.hidden { display: none; }
+  .sim-rate-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    width: 76px;
+    padding: 2px 0;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    outline: none;
+  }
+  .sim-rate-input:focus { border-color: var(--accent); }
+
+  .sim-panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 8px;
+  }
+  .sim-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .sim-panel-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .sim-fee-badge {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(45, 212, 167, 0.12);
+    color: var(--accent);
+  }
+  .sim-received {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .sim-received .sim-currency-code {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .sim-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .sim-grid-label { color: var(--muted); margin-bottom: 4px; }
+  .sim-grid-value {
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .sim-cost-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    border-top: 1px solid var(--panel-border);
+  }
+  .sim-cost-label { font-size: 13px; color: var(--muted); }
+  .sim-cost-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .sim-disclaimer {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+    margin: 12px 0 0;
+  }
+  .divider {
+    border: none;
+    border-top: 1px solid var(--panel-border);
+    margin: 8px 0 32px;
+  }
+
   form { display: flex; flex-direction: column; gap: 10px; }
   input[type="email"] {
     width: 100%;
@@ -155,6 +282,62 @@
     </header>
 
     <div>
+      <p class="section-label">Simula a tua remessa</p>
+
+      <div class="sim-amount-row">
+        <span class="sim-currency">€</span>
+        <input type="number" id="sim-amount" class="sim-amount-input" value="500" min="0" />
+      </div>
+
+      <div class="corridors sim-corridors" id="sim-corridors">
+        <button type="button" class="corridor-card selected" data-code="AO">
+          <span class="flag">🇦🇴</span>
+          <span class="code">AO</span>
+          <span class="name">Angola</span>
+        </button>
+        <button type="button" class="corridor-card" data-code="CV">
+          <span class="flag">🇨🇻</span>
+          <span class="code">CV</span>
+          <span class="name">Cabo Verde</span>
+        </button>
+        <button type="button" class="corridor-card" data-code="GW">
+          <span class="flag">🇬🇼</span>
+          <span class="code">GW</span>
+          <span class="name">Guiné-Bissau</span>
+        </button>
+      </div>
+
+      <div class="sim-rate-row" id="sim-rate-row">
+        <span>Taxa interbancária EUR/AOA de referência:</span>
+        <input type="number" id="sim-mid-rate" class="sim-rate-input" value="1050" />
+        <span>atualiza manualmente — valor ilustrativo</span>
+      </div>
+
+      <div class="sim-panel">
+        <div class="sim-panel-head">
+          <span class="sim-panel-label">O destinatário recebe</span>
+          <span class="sim-fee-badge" id="sim-fee-label"></span>
+        </div>
+        <div class="sim-received" id="sim-received"></div>
+        <div class="sim-grid">
+          <div>
+            <div class="sim-grid-label">Taxa aplicada</div>
+            <div class="sim-grid-value" id="sim-rate-applied"></div>
+          </div>
+          <div>
+            <div class="sim-grid-label">Ao câmbio de mercado receberia</div>
+            <div class="sim-grid-value" id="sim-market-received"></div>
+          </div>
+        </div>
+        <div class="sim-cost-row">
+          <span class="sim-cost-label">Custo total da operação</span>
+          <span class="sim-cost-value" id="sim-cost"></span>
+        </div>
+      </div>
+      <p class="sim-disclaimer">Simulador ilustrativo — não constitui oferta de câmbio. CVE e XOF têm paridade fixa ao euro; AOA flutua no mercado interbancário.</p>
+
+      <hr class="divider" />
+
       <p class="section-label">Escolhe o teu corredor</p>
       <div class="corridors" id="corridors">
         <button type="button" class="corridor-card" data-code="AO">
@@ -202,6 +385,77 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_yJAnTF8HzPqGIuOqd07Ptw_-IYwEB81';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // --- Simulador (lógica portada de kubo-simulador-corredores.jsx) ---
+    const SIM_CORRIDORS = {
+      AO: { code: 'AO', currency: 'AOA', pegType: 'variavel', spreadPct: 0.025 },
+      CV: { code: 'CV', currency: 'CVE', pegType: 'fixo', fixedRate: 110.265, flatFee: 1 },
+      GW: { code: 'GW', currency: 'XOF', pegType: 'fixo', fixedRate: 655.957, flatFee: 1 },
+    };
+
+    function fmt(n, decimals = 2) {
+      return Number(n).toLocaleString('pt-PT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    let simSelected = 'AO';
+    const simCorridorsEl = document.getElementById('sim-corridors');
+    const simAmountInput = document.getElementById('sim-amount');
+    const simMidRateInput = document.getElementById('sim-mid-rate');
+    const simRateRow = document.getElementById('sim-rate-row');
+    const simFeeLabel = document.getElementById('sim-fee-label');
+    const simReceived = document.getElementById('sim-received');
+    const simRateApplied = document.getElementById('sim-rate-applied');
+    const simMarketReceived = document.getElementById('sim-market-received');
+    const simCost = document.getElementById('sim-cost');
+
+    function computeSim() {
+      const corridor = SIM_CORRIDORS[simSelected];
+      const amt = Number(simAmountInput.value) || 0;
+
+      let effectiveRate, received, marketReceived, cost, feeLabel;
+
+      if (corridor.pegType === 'variavel') {
+        const midRate = Number(simMidRateInput.value) || 0;
+        effectiveRate = midRate * (1 - corridor.spreadPct);
+        received = amt * effectiveRate;
+        marketReceived = amt * midRate;
+        cost = marketReceived - received;
+        feeLabel = `${(corridor.spreadPct * 100).toFixed(1)}% spread`;
+      } else {
+        const netSent = Math.max(amt - corridor.flatFee, 0);
+        effectiveRate = corridor.fixedRate;
+        received = netSent * corridor.fixedRate;
+        marketReceived = amt * corridor.fixedRate;
+        cost = marketReceived - received;
+        feeLabel = `€${corridor.flatFee} fixo`;
+      }
+
+      const decimals = corridor.currency === 'AOA' ? 0 : 2;
+      const rateDecimals = corridor.currency === 'AOA' ? 2 : 3;
+      const costInEur = effectiveRate ? cost / effectiveRate : 0;
+
+      simFeeLabel.textContent = feeLabel;
+      simReceived.innerHTML = `${fmt(received, decimals)} <span class="sim-currency-code">${corridor.currency}</span>`;
+      simRateApplied.textContent = `1 € = ${fmt(effectiveRate, rateDecimals)} ${corridor.currency}`;
+      simMarketReceived.textContent = `${fmt(marketReceived, decimals)} ${corridor.currency}`;
+      simCost.textContent = `≈ ${fmt(costInEur)} €`;
+
+      simRateRow.classList.toggle('hidden', corridor.pegType !== 'variavel');
+    }
+
+    simCorridorsEl.addEventListener('click', (e) => {
+      const card = e.target.closest('.corridor-card');
+      if (!card) return;
+      simSelected = card.dataset.code;
+      [...simCorridorsEl.children].forEach((c) => c.classList.toggle('selected', c === card));
+      computeSim();
+    });
+
+    simAmountInput.addEventListener('input', computeSim);
+    simMidRateInput.addEventListener('input', computeSim);
+
+    computeSim();
+
+    // --- Waitlist ---
     const corridorsEl = document.getElementById('corridors');
     const form = document.getElementById('waitlist-form');
     const emailInput = document.getElementById('email-input');
