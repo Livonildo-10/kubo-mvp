@@ -1,48 +1,20 @@
 import { useState, useMemo } from "react";
 import { Lock, TrendingUp, ArrowRight, RefreshCw } from "lucide-react";
+import { CORRIDORS } from "./pricing-engine/corridors.js";
+import { computeQuote, formatMoney as fmt, getFeeLabel } from "./pricing-engine/engine.js";
 
 const FONT_IMPORT = `
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 `;
 
-const CORRIDORS = {
-  AO: {
-    code: "AO",
-    country: "Angola",
-    currency: "AOA",
-    currencyName: "Kwanza",
-    rail: "Multicaixa Express",
-    pegType: "variável",
-    spreadPct: 0.025,
-    flatFee: 0,
-  },
-  CV: {
-    code: "CV",
-    country: "Cabo Verde",
-    currency: "CVE",
-    currencyName: "Escudo",
-    rail: "BCA / Banco Atlântico",
-    pegType: "fixo",
-    fixedRate: 110.265,
-    spreadPct: 0,
-    flatFee: 1,
-  },
-  GW: {
-    code: "GW",
-    country: "Guiné-Bissau",
-    currency: "XOF",
-    currencyName: "Franco CFA",
-    rail: "Wave / Orange (UEMOA)",
-    pegType: "fixo",
-    fixedRate: 655.957,
-    spreadPct: 0,
-    flatFee: 1,
-  },
+// Pricing rules (rates, fees, spread) live in pricing-engine/ — this file
+// only renders them. Rail/currencyName below are display-only metadata not
+// needed by the pricing engine itself.
+const CORRIDOR_DISPLAY = {
+  AO: { rail: "Multicaixa Express", currencyName: "Kwanza" },
+  CV: { rail: "BCA / Banco Atlântico", currencyName: "Escudo" },
+  GW: { rail: "Wave / Orange (UEMOA)", currencyName: "Franco CFA" },
 };
-
-function fmt(n, decimals = 2) {
-  return n.toLocaleString("pt-PT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-}
 
 export default function KuboSimulator() {
   const [amount, setAmount] = useState(500);
@@ -52,21 +24,15 @@ export default function KuboSimulator() {
   const corridor = CORRIDORS[selected];
 
   const result = useMemo(() => {
-    const amt = Number(amount) || 0;
-    if (corridor.pegType === "variável") {
-      const effectiveRate = midRate * (1 - corridor.spreadPct);
-      const received = amt * effectiveRate;
-      const marketReceived = amt * midRate;
-      const cost = marketReceived - received;
-      return { effectiveRate, received, marketReceived, cost, feeLabel: `${(corridor.spreadPct * 100).toFixed(1)}% spread` };
-    } else {
-      const netSent = Math.max(amt - corridor.flatFee, 0);
-      const received = netSent * corridor.fixedRate;
-      const marketReceived = amt * corridor.fixedRate;
-      const cost = marketReceived - received;
-      return { effectiveRate: corridor.fixedRate, received, marketReceived, cost, feeLabel: `€${corridor.flatFee} fixo` };
-    }
-  }, [amount, midRate, corridor]);
+    const quote = computeQuote({ corridorCode: selected, sendAmount: amount, marketRate: midRate });
+    return {
+      effectiveRate: quote.customerRate,
+      received: quote.recipientAmount,
+      marketReceived: quote.marketReceivedAmount,
+      cost: quote.totalCost,
+      feeLabel: getFeeLabel(corridor),
+    };
+  }, [amount, midRate, selected, corridor]);
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
@@ -146,12 +112,12 @@ export default function KuboSimulator() {
                       {c.country}
                     </div>
                     <div className="text-xs" style={{ color: "#8C9BAE" }}>
-                      {c.rail}
+                      {CORRIDOR_DISPLAY[c.code].rail}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs" style={{ color: "#8C9BAE" }}>
-                  {c.pegType === "fixo" ? (
+                  {c.fxType === "fixed" ? (
                     <>
                       <Lock size={13} />
                       <span>câmbio fixo</span>
@@ -169,7 +135,7 @@ export default function KuboSimulator() {
         </div>
 
         {/* Rate input for variable corridor */}
-        {corridor.pegType === "variável" && (
+        {corridor.fxType === "variable" && (
           <div className="mb-6 flex items-center gap-3 text-sm" style={{ color: "#8C9BAE" }}>
             <RefreshCw size={14} />
             <span>Taxa interbancária EUR/AOA de referência:</span>
@@ -191,7 +157,7 @@ export default function KuboSimulator() {
               O destinatário recebe
             </div>
             <div className="text-xs px-2 py-1 rounded" style={{ background: "#1B3226", color: "#2FBF8F" }}>
-              {corridor.feeLabel}
+              {result.feeLabel}
             </div>
           </div>
 
@@ -199,9 +165,9 @@ export default function KuboSimulator() {
             className="text-4xl font-bold mb-6 flex items-baseline gap-2"
             style={{ color: "#F5F2EA", fontFamily: "'IBM Plex Mono', monospace" }}
           >
-            {fmt(result.received, corridor.currency === "AOA" ? 0 : 2)}
+            {fmt(result.received, corridor.displayDecimals)}
             <span className="text-lg font-medium" style={{ color: "#8C9BAE" }}>
-              {corridor.currency}
+              {corridor.destinationCurrency}
             </span>
           </div>
 
@@ -209,13 +175,13 @@ export default function KuboSimulator() {
             <div>
               <div style={{ color: "#8C9BAE" }}>Taxa aplicada</div>
               <div style={{ color: "#F5F2EA", fontFamily: "'IBM Plex Mono', monospace" }}>
-                1 € = {fmt(result.effectiveRate, corridor.currency === "AOA" ? 2 : 3)} {corridor.currency}
+                1 € = {fmt(result.effectiveRate, corridor.rateDisplayDecimals)} {corridor.destinationCurrency}
               </div>
             </div>
             <div>
               <div style={{ color: "#8C9BAE" }}>Ao câmbio de mercado receberia</div>
               <div style={{ color: "#F5F2EA", fontFamily: "'IBM Plex Mono', monospace" }}>
-                {fmt(result.marketReceived, corridor.currency === "AOA" ? 0 : 2)} {corridor.currency}
+                {fmt(result.marketReceived, corridor.displayDecimals)} {corridor.destinationCurrency}
               </div>
             </div>
           </div>
@@ -227,7 +193,7 @@ export default function KuboSimulator() {
             <div className="flex items-center gap-2">
               <ArrowRight size={14} style={{ color: "#E8A33D" }} />
               <span className="text-lg font-semibold" style={{ color: "#E8A33D", fontFamily: "'IBM Plex Mono', monospace" }}>
-                ≈ {fmt(result.cost / (corridor.currency === "AOA" ? result.effectiveRate : corridor.fixedRate))} €
+                ≈ {fmt(result.cost)} €
               </span>
             </div>
           </div>

@@ -380,22 +380,16 @@
 
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    import { computeQuote, getCorridor, formatMoney, getFeeLabel } from './pricing-engine/engine.js';
 
     const SUPABASE_URL = 'https://peqmbseikyktapqcqldb.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_yJAnTF8HzPqGIuOqd07Ptw_-IYwEB81';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // --- Simulador (lógica portada de kubo-simulador-corredores.jsx) ---
-    const SIM_CORRIDORS = {
-      AO: { code: 'AO', currency: 'AOA', pegType: 'variavel', spreadPct: 0.025 },
-      CV: { code: 'CV', currency: 'CVE', pegType: 'fixo', fixedRate: 110.265, flatFee: 1 },
-      GW: { code: 'GW', currency: 'XOF', pegType: 'fixo', fixedRate: 655.957, flatFee: 1 },
-    };
-
-    function fmt(n, decimals = 2) {
-      return Number(n).toLocaleString('pt-PT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    }
-
+    // --- Simulador ---
+    // All pricing logic (rates, fees, spread, rounding) lives in
+    // pricing-engine/. This function only reads inputs, asks the engine for
+    // a Quote, and writes the result to the DOM — no formulas here.
     let simSelected = 'AO';
     const simCorridorsEl = document.getElementById('sim-corridors');
     const simAmountInput = document.getElementById('sim-amount');
@@ -408,38 +402,20 @@
     const simCost = document.getElementById('sim-cost');
 
     function computeSim() {
-      const corridor = SIM_CORRIDORS[simSelected];
-      const amt = Number(simAmountInput.value) || 0;
+      const corridor = getCorridor(simSelected);
+      const quote = computeQuote({
+        corridorCode: simSelected,
+        sendAmount: simAmountInput.value,
+        marketRate: simMidRateInput.value,
+      });
 
-      let effectiveRate, received, marketReceived, cost, feeLabel;
+      simFeeLabel.textContent = getFeeLabel(corridor);
+      simReceived.innerHTML = `${formatMoney(quote.recipientAmount, corridor.displayDecimals)} <span class="sim-currency-code">${quote.currency}</span>`;
+      simRateApplied.textContent = `1 € = ${formatMoney(quote.customerRate, corridor.rateDisplayDecimals)} ${quote.currency}`;
+      simMarketReceived.textContent = `${formatMoney(quote.marketReceivedAmount, corridor.displayDecimals)} ${quote.currency}`;
+      simCost.textContent = `≈ ${formatMoney(quote.totalCost)} €`;
 
-      if (corridor.pegType === 'variavel') {
-        const midRate = Number(simMidRateInput.value) || 0;
-        effectiveRate = midRate * (1 - corridor.spreadPct);
-        received = amt * effectiveRate;
-        marketReceived = amt * midRate;
-        cost = marketReceived - received;
-        feeLabel = `${(corridor.spreadPct * 100).toFixed(1)}% spread`;
-      } else {
-        const netSent = Math.max(amt - corridor.flatFee, 0);
-        effectiveRate = corridor.fixedRate;
-        received = netSent * corridor.fixedRate;
-        marketReceived = amt * corridor.fixedRate;
-        cost = marketReceived - received;
-        feeLabel = `€${corridor.flatFee} fixo`;
-      }
-
-      const decimals = corridor.currency === 'AOA' ? 0 : 2;
-      const rateDecimals = corridor.currency === 'AOA' ? 2 : 3;
-      const costInEur = effectiveRate ? cost / effectiveRate : 0;
-
-      simFeeLabel.textContent = feeLabel;
-      simReceived.innerHTML = `${fmt(received, decimals)} <span class="sim-currency-code">${corridor.currency}</span>`;
-      simRateApplied.textContent = `1 € = ${fmt(effectiveRate, rateDecimals)} ${corridor.currency}`;
-      simMarketReceived.textContent = `${fmt(marketReceived, decimals)} ${corridor.currency}`;
-      simCost.textContent = `≈ ${fmt(costInEur)} €`;
-
-      simRateRow.classList.toggle('hidden', corridor.pegType !== 'variavel');
+      simRateRow.classList.toggle('hidden', corridor.fxType !== 'variable');
     }
 
     simCorridorsEl.addEventListener('click', (e) => {
